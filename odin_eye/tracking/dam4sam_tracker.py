@@ -237,8 +237,7 @@ class D4SMEngine:
 
     def _prep(self, pil_image):
         """PIL → (1, 3, 1024, 1024) normalised tensor on device."""
-        if self._img_w is None:
-            self._img_w, self._img_h = pil_image.size
+        self._img_w, self._img_h = pil_image.size
         arr = np.array(
             pil_image.convert("RGB").resize(
                 (self.input_size, self.input_size)
@@ -270,14 +269,17 @@ class D4SMEngine:
             cam_state:    PerCameraState for this camera.
             frame_index:  Current frame number.
         Returns:
-            List of newly assigned object IDs.
+            Tuple of (new_ids, masks_dict) where masks_dict maps each
+            new obj_id to a full-resolution binary np.ndarray (H, W) uint8.
         """
         if not bboxes_xyxy:
-            return []
+            return [], {}
 
         img = self._prep(pil_image)
         feats, pos, fsz = self._backbone(img)
         new_ids = []
+        masks_out = {}
+        img_h, img_w = pil_image.size[1], pil_image.size[0]
 
         for bbox in bboxes_xyxy:
             x1, y1, x2, y2 = bbox
@@ -312,6 +314,11 @@ class D4SMEngine:
             pred = cur["pred_masks"]
             if self.fill_hole_area > 0:
                 pred = fill_holes_in_mask_scores(pred, self.fill_hole_area)
+
+            full_res = F.interpolate(
+                pred, (img_h, img_w), mode="bilinear", align_corners=False,
+            )
+            mask_np = (full_res[0, 0] > 0).float().cpu().numpy().astype(np.uint8)
 
             hi_res = F.interpolate(
                 pred, (self.input_size, self.input_size),
@@ -350,8 +357,9 @@ class D4SMEngine:
             cam_state.all_obj_ids.append(oid)
             cam_state.next_obj_id += 1
             new_ids.append(oid)
+            masks_out[oid] = mask_np
 
-        return new_ids
+        return new_ids, masks_out
 
     # ── per-frame tracking ────────────────────────────────────────
 

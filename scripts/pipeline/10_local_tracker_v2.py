@@ -20,7 +20,7 @@ Processing flow per synchronised frame:
 Usage:
     python scripts/pipeline/10_local_tracker_v2.py
     python scripts/pipeline/10_local_tracker_v2.py --max_frames 5 --visualize
-    python scripts/pipeline/10_local_tracker_v2.py --device cuda --split val
+    python scripts/pipeline/10_local_tracker_v2.py --device cuda
 
 Requires: run setup_tracking_v2.sh first to install SAM2 + download checkpoints
 """
@@ -53,10 +53,6 @@ from odin_eye.reid.dinov2_extractor import DINOv2ReIDExtractor
 # Constants
 # ─────────────────────────────────────────────────────────────────────
 CAMERA_IDS = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"]
-CAM_FILE_MAP = {
-    "C1": "cam1", "C2": "cam2", "C3": "cam3", "C4": "cam4",
-    "C5": "cam5", "C6": "cam6", "C7": "cam7",
-}
 
 GROUND_X_MIN, GROUND_X_MAX = -300.0, 3300.0
 GROUND_Y_MIN, GROUND_Y_MAX = -90.0, 1110.0
@@ -181,12 +177,11 @@ def match_detections_to_tracks(yolo_bboxes, yolo_confs, d4sm_masks,
 class MultiCameraTrackerV2:
     def __init__(self, yolo_weights, calib_cache_path, dataset_dir,
                  sam2_checkpoint_dir, sam2_model_size='large',
-                 split='val', conf_thresh=0.25, imgsz=1280,
+                 conf_thresh=0.25, imgsz=1280,
                  detect_interval=5, max_lost_frames=10,
                  device='cuda'):
         self.device_str = device
-        self.split = split
-        self.dataset_dir = os.path.join(dataset_dir, split)
+        self.dataset_dir = dataset_dir  # datasets/Wildtrack/Image_subsets
         self.detect_interval = detect_interval
         self.max_lost = max_lost_frames
         self.conf_thresh = conf_thresh
@@ -203,7 +198,7 @@ class MultiCameraTrackerV2:
 
         # Discover synchronised frames
         self.frame_ids = self._discover_frames()
-        print(f"Found {len(self.frame_ids)} synchronised frames in '{split}'")
+        print(f"Found {len(self.frame_ids)} synchronised frames")
 
         # YOLO detector (one instance, reset per camera via re-track)
         print(f"Loading YOLO detector ({yolo_weights})...")
@@ -230,18 +225,20 @@ class MultiCameraTrackerV2:
     # ── frame discovery ───────────────────────────────────────────
 
     def _discover_frames(self):
-        files = sorted(os.listdir(self.dataset_dir))
-        fids = [f.replace("cam1_", "").replace(".jpg", "")
-                for f in files if f.startswith("cam1_") and f.endswith(".jpg")]
-        return sorted([fid for fid in fids
-                       if all(os.path.exists(
-                           os.path.join(self.dataset_dir,
-                                        f"{CAM_FILE_MAP[c]}_{fid}.jpg"))
-                              for c in CAMERA_IDS)])
+        """Discover frame IDs from raw WILDTRACK (Image_subsets/C1/*.png)."""
+        c1_dir = os.path.join(self.dataset_dir, "C1")
+        fids = sorted(
+            f.replace(".png", "")
+            for f in os.listdir(c1_dir)
+            if f.endswith(".png")
+        )
+        return [fid for fid in fids
+                if all(os.path.exists(
+                    os.path.join(self.dataset_dir, cam, f"{fid}.png"))
+                       for cam in CAMERA_IDS)]
 
     def _load_image(self, cam_id, frame_id):
-        path = os.path.join(self.dataset_dir,
-                            f"{CAM_FILE_MAP[cam_id]}_{frame_id}.jpg")
+        path = os.path.join(self.dataset_dir, cam_id, f"{frame_id}.png")
         img = cv2.imread(path)
         if img is None:
             raise FileNotFoundError(f"Missing: {path}")
@@ -284,31 +281,34 @@ class MultiCameraTrackerV2:
         if is_detect_frame:
             bboxes, confs = self._detect(image_bgr)
 
-            # on frame 0 with no existing tracks, init all detections
             if not cs.active_ids():
+                # No existing tracks: init all detections, use init masks
                 if bboxes:
-                    self.engine.initialize_objects(pil, bboxes, cs, frame_idx)
+                    _, init_masks = self.engine.initialize_objects(
+                        pil, bboxes, cs, frame_idx)
+                else:
+                    init_masks = {}
+                self._kill_lost(cs)
+                return self._build_tracklets(
+                    cam_id, cs, init_masks, image_bgr, frame_idx)
             else:
-                # track first to get current masks for matching
+                # Track existing objects, then init unmatched detections
                 cur_masks = self.engine.track_frame(pil, cs, frame_idx)
                 _, unmatched = match_detections_to_tracks(
                     bboxes, confs, cur_masks)
-                # init new objects for unmatched detections
                 if unmatched:
                     new_bbs = [bb for bb, _ in unmatched]
-                    self.engine.initialize_objects(pil, new_bbs, cs, frame_idx)
+                    _, new_masks = self.engine.initialize_objects(
+                        pil, new_bbs, cs, frame_idx)
+                    cur_masks.update(new_masks)
 
-                # masks already computed — skip second track_frame below
                 self._kill_lost(cs)
                 return self._build_tracklets(
                     cam_id, cs, cur_masks, image_bgr, frame_idx)
 
-        # ── Step 2: D4SM tracking ──
+        # ── Step 2: D4SM tracking (non-detection frames) ──
         masks = self.engine.track_frame(pil, cs, frame_idx)
-
-        # ── Step 3: kill lost objects ──
         self._kill_lost(cs)
-
         return self._build_tracklets(cam_id, cs, masks, image_bgr, frame_idx)
 
     def _kill_lost(self, cs):
@@ -544,8 +544,7 @@ def parse_args():
     p.add_argument("--calib_cache", default=os.path.join(
         BASE_DIR, "output", "calibration_cache.json"))
     p.add_argument("--dataset_dir", default=os.path.join(
-        BASE_DIR, "datasets", "wildtrack", "images"))
-    p.add_argument("--split", default="val", choices=["train", "val"])
+        BASE_DIR, "datasets", "Wildtrack", "Image_subsets"))
     p.add_argument("--max_frames", type=int, default=None)
     p.add_argument("--conf_thresh", type=float, default=0.25)
     p.add_argument("--imgsz", type=int, default=1280)
@@ -569,7 +568,6 @@ if __name__ == "__main__":
         dataset_dir=args.dataset_dir,
         sam2_checkpoint_dir=args.sam2_checkpoint_dir,
         sam2_model_size=args.sam2_model_size,
-        split=args.split,
         conf_thresh=args.conf_thresh,
         imgsz=args.imgsz,
         detect_interval=args.detect_interval,

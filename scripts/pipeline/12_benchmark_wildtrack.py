@@ -270,8 +270,8 @@ class WildtrackEvaluator:
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--gt_dir", default=os.path.join(BASE_DIR,"datasets","Wildtrack","annotations_positions"))
-    p.add_argument("--local_dir", default=os.path.join(BASE_DIR,"output","tracking_results"))
-    p.add_argument("--global_dir", default=os.path.join(BASE_DIR,"output","global_results"))
+    p.add_argument("--local_dir", default=os.path.join(BASE_DIR,"output","tracking_results_v2"))
+    p.add_argument("--global_dir", default=os.path.join(BASE_DIR,"output","global_results_v2"))
     p.add_argument("--calib", default=os.path.join(BASE_DIR,"output","calibration_cache.json"))
     p.add_argument("--iou_thresh", type=float, default=0.5)
     p.add_argument("--dist_thresh", type=float, default=100.0)

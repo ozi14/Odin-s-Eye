@@ -38,10 +38,6 @@ sys.path.append(BASE_DIR)
 # Constants & Hyperparameters
 # ---------------------------------------------------------------------------
 CAMERA_IDS = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"]
-CAM_FILE_MAP = {
-    "C1": "cam1", "C2": "cam2", "C3": "cam3", "C4": "cam4",
-    "C5": "cam5", "C6": "cam6", "C7": "cam7",
-}
 
 # Matching weights — tuned for DINOv2 1024-D features.
 # DINOv2 cross-view cosine similarity for same person is ~0.65-0.80

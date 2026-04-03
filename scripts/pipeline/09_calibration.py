@@ -1135,7 +1135,7 @@ def parse_args():
     )
     parser.add_argument(
         "--calib_dir", type=str,
-        default=os.path.join(BASE_DIR, "datasets", "wildtrack_calibrations"),
+        default=os.path.join(BASE_DIR, "datasets", "Wildtrack", "calibrations"),
         help="Path to the WILDTRACK calibration directory (default: %(default)s)"
     )
     parser.add_argument(
