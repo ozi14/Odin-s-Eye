@@ -32,16 +32,26 @@ python scripts/pipeline/09_calibration.py
 
 ### Phase 1 — Local tracking (requires CUDA for SAM2.1)
 
+**Inputs:**
+- Raw WILDTRACK images: `datasets/Wildtrack/Image_subsets/C{1..7}/*.png`
+- Calibration cache from Phase 0: `output/calibration_cache.json`
+- YOLOv26m weights: `models/yolo26m_ft_v1/weights/best.pt`
+
 ```bash
-bash setup_tracking_v2.sh                    # clone D4SM, install SAM2, download checkpoint
-python scripts/pipeline/10_local_tracker_v2.py --device cuda --split val
+bash setup_tracking_v2.sh                    # clone D4SM, install SAM2.1, download checkpoint
+python scripts/pipeline/10_local_tracker_v2.py --device cuda
 ```
+
+Outputs are written to `output/tracking_results_v2/` (JSON + NPZ embeddings).
 
 ### Phase 2 — Global association
 
 ```bash
 python scripts/pipeline/11_global_association.py
 ```
+
+This reads Phase 1 v2 outputs from `output/tracking_results_v2/` and writes
+global tracks to `output/global_results_v2/`.
 
 ## Colab
 
