@@ -1,0 +1,15 @@
+# Large data / model dirs — skip indexing
+datasets/
+output/
+checkpoints/
+external/
+models/
+dump/
+old/vlm/model/
+old/vlm/crops/
+old/vlm/padded_crops/
+old/legacy/osnet_ain/*.pth.tar
+old/legacy/osnet_msmt17/*.pth
+*.safetensors
+*.pt
+*.pth

@@ -1,0 +1,53 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Environments
+.venv/
+venv/
+env/
+dump/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Project data & outputs (large / local)
+datasets/
+output/
+checkpoints/
+external/
+models/
+
+# Model weights (anywhere in tree)
+*.pt
+*.pth
+*.pth.tar
+*.onnx
+*.safetensors
+*.bin
+
+# Old/legacy VLM model + intermediate artefacts
+old/vlm/model/
+old/vlm/crops/
+old/vlm/padded_crops/
+old/vlm/annotated_frame.jpg
+
+# Old/legacy model weights (redundant with globs above, explicit for clarity)
+old/legacy/osnet_ain/*.pth.tar
+old/legacy/osnet_msmt17/*.pth
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Logs
+*.log
+wandb/
+
+# Editable install metadata
+*.egg-info/
