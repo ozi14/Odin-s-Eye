@@ -284,6 +284,7 @@ class D4SMEngine:
 
     # ── object initialisation ─────────────────────────────────────
 
+    @torch.no_grad()
     def initialize_objects(self, pil_image, bboxes_xyxy, cam_state,
                            frame_index=0):
         """
@@ -390,6 +391,7 @@ class D4SMEngine:
 
     # ── per-frame tracking ────────────────────────────────────────
 
+    @torch.no_grad()
     def track_frame(self, pil_image, cam_state, frame_index):
         """
         Run one D4SM tracking step for all alive objects in *cam_state*.

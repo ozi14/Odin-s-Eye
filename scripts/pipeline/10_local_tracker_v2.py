@@ -263,6 +263,7 @@ class MultiCameraTrackerV2:
 
     # ── per-camera frame processing ───────────────────────────────
 
+    @torch.no_grad()
     def _process_camera(self, cam_id, image_bgr, frame_idx):
         """
         Process one camera for one frame:
@@ -280,6 +281,8 @@ class MultiCameraTrackerV2:
         # ── Step 1: detection + new object init ──
         if is_detect_frame:
             bboxes, confs = self._detect(image_bgr)
+            # Free YOLO activations before heavy SAM2 forward pass
+            clear_gpu_cache(self.device_str)
 
             if not cs.active_ids():
                 # No existing tracks: init all detections, use init masks
@@ -289,27 +292,35 @@ class MultiCameraTrackerV2:
                 else:
                     init_masks = {}
                 self._kill_lost(cs)
-                return self._build_tracklets(
+                tracklets = self._build_tracklets(
                     cam_id, cs, init_masks, image_bgr, frame_idx)
+                del pil
+                return tracklets
             else:
                 # Track existing objects, then init unmatched detections
                 cur_masks = self.engine.track_frame(pil, cs, frame_idx)
                 _, unmatched = match_detections_to_tracks(
                     bboxes, confs, cur_masks)
                 if unmatched:
+                    # Free activations from track_frame before init
+                    clear_gpu_cache(self.device_str)
                     new_bbs = [bb for bb, _ in unmatched]
                     _, new_masks = self.engine.initialize_objects(
                         pil, new_bbs, cs, frame_idx)
                     cur_masks.update(new_masks)
 
                 self._kill_lost(cs)
-                return self._build_tracklets(
+                tracklets = self._build_tracklets(
                     cam_id, cs, cur_masks, image_bgr, frame_idx)
+                del pil
+                return tracklets
 
         # ── Step 2: D4SM tracking (non-detection frames) ──
         masks = self.engine.track_frame(pil, cs, frame_idx)
         self._kill_lost(cs)
-        return self._build_tracklets(cam_id, cs, masks, image_bgr, frame_idx)
+        tracklets = self._build_tracklets(cam_id, cs, masks, image_bgr, frame_idx)
+        del pil
+        return tracklets
 
     def _kill_lost(self, cs):
         for oid in list(cs.alive.keys()):
@@ -407,6 +418,8 @@ class MultiCameraTrackerV2:
                 except Exception as e:
                     print(f"  WARNING {cam_id} frame {fid}: {e}")
                     frame_result[cam_id] = []
+                # Free activation cache between cameras to prevent OOM
+                clear_gpu_cache(self.device_str)
 
             n = sum(len(v) for v in frame_result.values())
             total_tracklets += n
