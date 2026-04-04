@@ -6,6 +6,7 @@ Port of DAM4SAM-MOT (https://github.com/alanlukezic/d4sm) with:
   - Shared SAM2.1 backbone across multiple PerCameraState objects
   - Mid-video object addition / removal for surveillance use-cases
   - Configurable device (cuda / mps / cpu)
+  - CPU offload for memory bank tensors (storage_device)
 
 Requires: d4sm's modified SAM2 package (install via setup_tracking_v2.sh)
 
@@ -207,13 +208,23 @@ class D4SMEngine:
     """
 
     def __init__(self, model_size='large', checkpoint_dir='./checkpoints',
-                 device='cuda'):
+                 device='cuda', offload_state_to_cpu=True):
         ckpt_name, cfg_name = MODEL_CONFIGS[model_size]
         ckpt_path = os.path.join(checkpoint_dir, ckpt_name)
 
         print(f"Loading SAM2.1-{model_size.title()} on {device}...")
         self.sam = build_sam(cfg_name, ckpt_path, device=device)
         self.device = torch.device(device)
+
+        # Storage device for memory bank tensors (d4sm upstream feature).
+        # CPU offload keeps per-object maskmem_features and obj_ptr on
+        # system RAM, moving them to GPU only during track_step inference.
+        # Essential for multi-camera setups where 7× camera states would
+        # otherwise exhaust GPU memory.
+        if offload_state_to_cpu:
+            self.storage_device = torch.device("cpu")
+        else:
+            self.storage_device = torch.device(device)
 
         self.input_size = 1024
         self.fill_hole_area = 8
@@ -231,7 +242,22 @@ class D4SMEngine:
 
         self._img_w = None
         self._img_h = None
-        print("D4SM engine ready.")
+        storage_str = "CPU" if offload_state_to_cpu else str(device)
+        print(f"D4SM engine ready. Memory storage: {storage_str}")
+
+    # ── memory device helpers ─────────────────────────────────────
+
+    def _mem_to_device(self, mem_list, device):
+        """Move maskmem_features and obj_ptr tensors in a memory list to device."""
+        for entry in mem_list:
+            if "maskmem_features" in entry and torch.is_tensor(entry["maskmem_features"]):
+                entry["maskmem_features"] = entry["maskmem_features"].to(device, non_blocking=True)
+
+    def _ptr_to_device(self, ptr_list, device):
+        """Move obj_ptr tensors in a pointer list to device."""
+        for entry in ptr_list:
+            if "obj_ptr" in entry and torch.is_tensor(entry["obj_ptr"]):
+                entry["obj_ptr"] = entry["obj_ptr"].to(device, non_blocking=True)
 
     # ── image preprocessing ───────────────────────────────────────
 
@@ -331,21 +357,22 @@ class D4SMEngine:
                 object_score_logits=cur['object_score_logits'],
                 is_mask_from_pts=True,
             )
-            mmf = mmf.to(torch.bfloat16).to(self.device, non_blocking=True)
+            mmf = mmf.to(torch.bfloat16)
 
             if self.maskmem_pos_enc is None:
                 self.maskmem_pos_enc = [x[0:1].clone() for x in mpe]
 
             oid = cam_state.next_obj_id
+            # Store memory on storage_device (CPU when offloading)
             cam_state.per_obj_mem[oid] = [{
-                "maskmem_features": mmf,
+                "maskmem_features": mmf.to(self.storage_device, non_blocking=True),
                 "pred_masks": pred,
                 "is_init": True,
                 "frame_idx": frame_index,
                 "is_drm": False,
             }]
             cam_state.per_obj_ptr[oid] = [{
-                "obj_ptr": cur["obj_ptr"],
+                "obj_ptr": cur["obj_ptr"].to(self.storage_device, non_blocking=True),
                 "frame_idx": frame_index,
                 "is_init": True,
             }]
@@ -379,6 +406,11 @@ class D4SMEngine:
 
         mpe_dev = (self.maskmem_pos_enc[0].to(self.device)
                    if self.maskmem_pos_enc else None)
+
+        # Move active objects' memory banks from storage (CPU) → GPU
+        for oid in active:
+            self._mem_to_device(cam_state.per_obj_mem[oid], self.device)
+            self._ptr_to_device(cam_state.per_obj_ptr[oid], self.device)
 
         all_dict = {
             'per_obj_dict':     {o: cam_state.per_obj_mem[o] for o in active},
@@ -457,6 +489,18 @@ class D4SMEngine:
                 merged, pred_gpu, mmf, binary, npix, alt_all, ious_np,
             )
 
+        # Move memory banks back from GPU → storage (CPU)
+        for oid in active:
+            if oid in cam_state.per_obj_mem:
+                self._mem_to_device(cam_state.per_obj_mem[oid], self.storage_device)
+            if oid in cam_state.per_obj_ptr:
+                self._ptr_to_device(cam_state.per_obj_ptr[oid], self.storage_device)
+            # Sweep deferred DRM entries too (they hold a GPU tensor until next frame)
+            deferred = cam_state.drm_deferred.get(oid)
+            if deferred and torch.is_tensor(deferred.get("maskmem_features")):
+                deferred["maskmem_features"] = deferred["maskmem_features"].to(
+                    self.storage_device, non_blocking=True)
+
         return {oid: binary[i]
                 for i, oid in enumerate(active)
                 if cam_state.alive.get(oid, False)}
@@ -469,8 +513,13 @@ class D4SMEngine:
 
         # ── deferred DRM from previous frame ──
         if cs.drm_deferred.get(oid):
+            deferred = cs.drm_deferred[oid]
+            # Move from storage (CPU) back to compute device (GPU)
+            if torch.is_tensor(deferred.get("maskmem_features")):
+                deferred["maskmem_features"] = deferred["maskmem_features"].to(
+                    self.device, non_blocking=True)
             mem = cs.per_obj_mem[oid]
-            mem[-1] = cs.drm_deferred[oid]
+            mem[-1] = deferred
             cs.drm_deferred[oid] = None
             drm_idx = [i for i, e in enumerate(mem)
                        if not e['is_init'] and e['is_drm']]
@@ -500,6 +549,8 @@ class D4SMEngine:
                     break
 
         # ── new memory dict for this frame ──
+        # NOTE: tensors stay on GPU here because we're still inside
+        # track_frame; they'll be moved to storage_device at the end.
         new_mem = {
             "maskmem_features": mmf[idx].unsqueeze(0),
             "pred_masks": pred_gpu[idx].unsqueeze(0).detach().cpu().numpy(),
