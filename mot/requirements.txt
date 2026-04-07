@@ -1,0 +1,29 @@
+# Odin's Eye v3 — MOT20 Tracking + VLM Narration
+# Requirements for Apple Silicon (M4 Max) and Colab (A100)
+
+# ── Core ──
+ultralytics>=8.4.0
+torch>=2.1.0
+torchvision>=0.16.0
+Pillow
+tqdm
+numpy
+matplotlib
+opencv-python
+scipy
+
+# ── Tracking evaluation ──
+motmetrics
+
+# ── VLM narration (Apple Silicon) ──
+mlx
+mlx-vlm
+
+# ── VLM narration (GPU / Colab) ──
+transformers>=4.40.0
+accelerate
+qwen-vl-utils
+
+# ── Dataset ──
+kagglehub
+huggingface_hub
