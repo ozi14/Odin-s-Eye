@@ -134,6 +134,7 @@ Key CLI parameters for `01_track.py`:
 ## Dataset
 
 [MOT20](https://www.kaggle.com/datasets/ismailelbouknify/mot-20) — 4 train + 4 test sequences, dense crowds up to 150+ pedestrians/frame, 1920×1080 resolution.
+CrowdHuman+cctv merged dataset: https://drive.google.com/drive/folders/1oPijfK5Jo5GJiMRCebIm_CFVfWLz_fJG?usp=sharing
 
 ---
 
