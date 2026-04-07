@@ -52,7 +52,7 @@ from odin_eye.reid.dinov2_extractor import DINOv2ReIDExtractor
 # ─────────────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────────────
-CAMERA_IDS = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"]
+CAMERA_IDS = ["CAM1"]
 
 GROUND_X_MIN, GROUND_X_MAX = -300.0, 3300.0
 GROUND_Y_MIN, GROUND_Y_MAX = -90.0, 1110.0
@@ -187,14 +187,9 @@ class MultiCameraTrackerV2:
         self.conf_thresh = conf_thresh
         self.imgsz = imgsz
 
-        # Load calibration
-        print("Loading Phase 0 calibration cache...")
-        with open(calib_cache_path) as f:
-            self.calib = json.load(f)
-        self.H_invs = {
-            cid: np.array(self.calib["cameras"][cid]["H_inv"], dtype=np.float64)
-            for cid in CAMERA_IDS
-        }
+        # Skip calibration (single-camera mode)
+        self.calib = None
+        self.H_invs = {}
 
         # Discover synchronised frames
         self.frame_ids = self._discover_frames()
@@ -225,23 +220,29 @@ class MultiCameraTrackerV2:
     # ── frame discovery ───────────────────────────────────────────
 
     def _discover_frames(self):
-        """Discover frame IDs from raw WILDTRACK (Image_subsets/C1/*.png)."""
-        c1_dir = os.path.join(self.dataset_dir, "C1")
+        """Discover frame IDs from single-camera folder: dataset_dir/img1/*.jpg"""
+        img_dir = os.path.join(self.dataset_dir, "img1")
+        exts = (".jpg", ".jpeg", ".png")
         fids = sorted(
-            f.replace(".png", "")
-            for f in os.listdir(c1_dir)
-            if f.endswith(".png")
+            os.path.splitext(f)[0]
+            for f in os.listdir(img_dir)
+            if f.lower().endswith(exts)
         )
-        return [fid for fid in fids
-                if all(os.path.exists(
-                    os.path.join(self.dataset_dir, cam, f"{fid}.png"))
-                       for cam in CAMERA_IDS)]
+        return fids
 
     def _load_image(self, cam_id, frame_id):
-        path = os.path.join(self.dataset_dir, cam_id, f"{frame_id}.png")
+        img_dir = os.path.join(self.dataset_dir, "img1")
+        candidates = [
+            os.path.join(img_dir, f"{frame_id}.jpg"),
+            os.path.join(img_dir, f"{frame_id}.jpeg"),
+            os.path.join(img_dir, f"{frame_id}.png"),
+        ]
+        path = next((p for p in candidates if os.path.exists(p)), None)
+        if path is None:
+            raise FileNotFoundError(f"Missing frame: {frame_id} in {img_dir}")
         img = cv2.imread(path)
         if img is None:
-            raise FileNotFoundError(f"Missing: {path}")
+            raise FileNotFoundError(f"Failed to read: {path}")
         return img
 
     # ── YOLO detection ────────────────────────────────────────────
@@ -320,15 +321,11 @@ class MultiCameraTrackerV2:
 
     def _build_tracklets(self, cam_id, cs, masks, image_bgr, frame_idx):
         """Build LocalTrackletV2 list from D4SM masks, with DINOv2 ReID."""
-        H_inv = self.H_invs[cam_id]
         tracklets, crops, crop_masks = [], [], []
 
         for oid, mask in masks.items():
             bbox = mask_to_xyxy(mask)
             if bbox is None:
-                continue
-            world_xy = project_mask_foot(mask, H_inv)
-            if world_xy is None:
                 continue
 
             t = LocalTrackletV2(
@@ -337,7 +334,7 @@ class MultiCameraTrackerV2:
                 bbox=bbox,
                 confidence=1.0,
                 mask_area=int(mask.sum()),
-                world_xy=world_xy,
+                world_xy=None,   # single-camera mode: no ground-plane projection
                 frame_idx=frame_idx,
             )
             tracklets.append(t)
@@ -350,11 +347,10 @@ class MultiCameraTrackerV2:
             crop = image_bgr[y1c:y2c, x1c:x2c]
             mask_crop = mask[y1c:y2c, x1c:x2c]
             if crop.size == 0:
-                crops.append(Image.new('RGB', (10, 10)))
+                crops.append(Image.new("RGB", (10, 10)))
                 crop_masks.append(None)
             else:
-                crops.append(
-                    Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)))
+                crops.append(Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)))
                 crop_masks.append(mask_crop)
 
         # batched DINOv2 extraction
@@ -366,7 +362,8 @@ class MultiCameraTrackerV2:
                 emb = self.reid.extract_features_batch(batch_c, masks=batch_m)
                 all_emb.append(emb.cpu().numpy())
             embeddings = np.vstack(all_emb) if all_emb else np.empty(
-                (0, DINOv2ReIDExtractor.FEATURE_DIM))
+                (0, DINOv2ReIDExtractor.FEATURE_DIM)
+            )
 
             for idx, t in enumerate(tracklets):
                 t.embedding = embeddings[idx]
