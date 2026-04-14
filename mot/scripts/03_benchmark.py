@@ -28,6 +28,7 @@ Usage:
 import os
 import sys
 import argparse
+import logging
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,6 +37,7 @@ sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
+logger = logging.getLogger(__name__)
 
 # ── NumPy 2.0 compatibility shim for motmetrics ─────────────────────
 if not hasattr(np, 'asfarray'):
@@ -55,15 +57,21 @@ def load_mot_txt(path: Path) -> dict:
     """
     data = {}
     if not path.exists():
+        logger.warning("Prediction file not found: %s", path)
         return data
-    for line in path.read_text().strip().splitlines():
+    lines = path.read_text().strip().splitlines()
+    for line in lines:
         parts = line.strip().split(',')
         if len(parts) < 6:
             continue
-        fid   = int(parts[0])
-        tid   = int(parts[1])
-        x, y, w, h = float(parts[2]), float(parts[3]), float(parts[4]), float(parts[5])
-        conf  = float(parts[6]) if len(parts) > 6 else 1.0
+        try:
+            fid = int(parts[0])
+            tid = int(parts[1])
+            x, y, w, h = float(parts[2]), float(parts[3]), float(parts[4]), float(parts[5])
+            conf = float(parts[6]) if len(parts) > 6 else 1.0
+        except ValueError:
+            logger.warning("Skipping malformed MOT row: %s", line)
+            continue
         if conf < 0:   # MOT gt uses -1 for ignored regions
             continue
         data.setdefault(fid, []).append((tid, x, y, w, h))
@@ -79,16 +87,22 @@ def load_gt_txt(path: Path) -> dict:
     """
     data = {}
     if not path.exists():
+        logger.warning("GT file not found: %s", path)
         return data
-    for line in path.read_text().strip().splitlines():
+    lines = path.read_text().strip().splitlines()
+    for line in lines:
         parts = line.strip().split(',')
         if len(parts) < 7:
             continue
-        fid   = int(parts[0])
-        tid   = int(parts[1])
-        x, y, w, h = float(parts[2]), float(parts[3]), float(parts[4]), float(parts[5])
-        conf  = int(parts[6])
-        cls   = int(parts[7]) if len(parts) > 7 else 1
+        try:
+            fid = int(parts[0])
+            tid = int(parts[1])
+            x, y, w, h = float(parts[2]), float(parts[3]), float(parts[4]), float(parts[5])
+            conf = int(parts[6])
+            cls = int(parts[7]) if len(parts) > 7 else 1
+        except ValueError:
+            logger.warning("Skipping malformed GT row: %s", line)
+            continue
         if conf == 0 or cls != 1:
             continue
         data.setdefault(fid, []).append((tid, x, y, w, h))
@@ -114,7 +128,7 @@ def evaluate_mot(gt_data: dict, pred_data: dict,
     try:
         import motmetrics as mm
     except ImportError:
-        print("ERROR: motmetrics not installed.  Run: pip install motmetrics")
+        logger.error("motmetrics not installed. Run: pip install motmetrics")
         return {}
 
     acc = mm.MOTAccumulator(auto_id=True)
@@ -223,6 +237,11 @@ def parse_args():
 
 def main():
     args = parse_args()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
     dataset_dir = Path(args.dataset_dir)
     output_dir  = Path(args.output_dir)
@@ -233,15 +252,15 @@ def main():
         pred_path = output_dir / seq_name / f"mot_results{args.pred_suffix}.txt"
 
         if not gt_path.exists():
-            print(f"WARNING: GT not found for {seq_name}: {gt_path}")
+            logger.warning("GT not found for %s: %s", seq_name, gt_path)
             continue
         if not pred_path.exists():
-            print(f"WARNING: Predictions not found for {seq_name}: {pred_path}")
+            logger.warning("Predictions not found for %s: %s", seq_name, pred_path)
             continue
 
-        print(f"\nLoading: {seq_name}")
-        print(f"  GT:   {gt_path}")
-        print(f"  Pred: {pred_path}")
+        logger.info("Loading sequence: %s", seq_name)
+        logger.info("  GT: %s", gt_path)
+        logger.info("  Pred: %s", pred_path)
 
         gt_data   = load_gt_txt(gt_path)
         pred_data = load_mot_txt(pred_path)
@@ -255,7 +274,7 @@ def main():
             json_path = output_dir / seq_name / f"metrics{args.pred_suffix}.json"
             with open(json_path, 'w') as f:
                 json.dump(metrics, f, indent=2)
-            print(f"  Metrics saved: {json_path}")
+            logger.info("Metrics saved: %s", json_path)
 
     # Summary across all sequences
     if len(all_metrics) > 1:

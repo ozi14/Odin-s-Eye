@@ -24,6 +24,7 @@ import sys
 import json
 import time
 import argparse
+import logging
 import cv2
 import numpy as np
 from pathlib import Path
@@ -37,6 +38,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from ultralytics import YOLO
 from odin_eye_mot.tracker.bytetrack import ByteTracker, reset_id_counter
 from odin_eye_mot.tracker.kalman_filter import KalmanFilter
+
+logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -72,7 +75,7 @@ class MOT20Sequence:
                 elif line.startswith('imHeight'):
                     self.height = int(line.split('=')[1])
 
-        print(f"Sequence {self.name}: {len(self.frames)} frames @ {self.fps:.0f}fps")
+        logger.info("Sequence %s: %d frames @ %.0ffps", self.name, len(self.frames), self.fps)
 
     def __len__(self):
         return len(self.frames)
@@ -82,7 +85,7 @@ class MOT20Sequence:
             frame_id = int(frame_path.stem)
             img = cv2.imread(str(frame_path))
             if img is None:
-                print(f"WARNING: Failed to read {frame_path}")
+                logger.warning("Failed to read frame %s", frame_path)
                 continue
             yield frame_id, img
 
@@ -175,10 +178,10 @@ def run_sequence(
     if max_frames:
         frames_iter = frames_iter[:max_frames]
 
-    print(f"\n{'='*60}")
-    print(f"  Tracking: {seq.name}  ({len(frames_iter)} frames)")
-    print(f"  Output:   {seq_out}")
-    print(f"{'='*60}")
+    logger.info("%s", "=" * 60)
+    logger.info("Tracking: %s (%d frames)", seq.name, len(frames_iter))
+    logger.info("Output: %s", seq_out)
+    logger.info("%s", "=" * 60)
 
     for frame_id, frame_bgr in tqdm(frames_iter, desc=seq.name, unit='fr'):
         # Detection
@@ -227,12 +230,12 @@ def run_sequence(
     fps_eff = len(frames_iter) / max(elapsed, 1e-3)
     n_tracks = len({r[1] for r in mot_rows})
 
-    print(f"\n  {seq.name} complete:")
-    print(f"    Frames:      {len(frames_iter)}")
-    print(f"    Total dets:  {total_det}")
-    print(f"    Unique IDs:  {n_tracks}")
-    print(f"    MOT txt:     {mot_txt}")
-    print(f"    Speed:       {fps_eff:.1f} fps  ({elapsed:.1f}s total)")
+    logger.info("%s complete:", seq.name)
+    logger.info("  Frames: %d", len(frames_iter))
+    logger.info("  Total dets: %d", total_det)
+    logger.info("  Unique IDs: %d", n_tracks)
+    logger.info("  MOT txt: %s", mot_txt)
+    logger.info("  Speed: %.1f fps (%.1fs total)", fps_eff, elapsed)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -285,6 +288,11 @@ def parse_args():
 
 def main():
     args = parse_args()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
     # ── device ──────────────────────────────────────────────────────
     import torch
@@ -296,14 +304,14 @@ def main():
         device = 'mps'
     else:
         device = 'cpu'
-    print(f"Device: {device}")
+    logger.info("Device: %s", device)
 
     # ── YOLO ────────────────────────────────────────────────────────
     yolo_path = args.yolo_weights
     if not os.path.exists(yolo_path):
-        print(f"Custom weights not found at {yolo_path}")
+        logger.warning("Custom weights not found at %s", yolo_path)
         yolo_path = 'yolo11x.pt'
-        print(f"Falling back to pretrained: {yolo_path}")
+        logger.info("Falling back to pretrained weights: %s", yolo_path)
     yolo = YOLO(yolo_path)
 
     # ── ReID (optional) ─────────────────────────────────────────────
@@ -313,8 +321,8 @@ def main():
             from odin_eye_mot.reid.dinov2_extractor import DINOv2ReIDExtractor
             reid_extractor = DINOv2ReIDExtractor(
                 model_name=args.reid_model, device=device)
-        except Exception as e:
-            print(f"WARNING: DINOv2 ReID unavailable ({e}). Running IoU-only.")
+        except (ImportError, RuntimeError, OSError) as err:
+            logger.warning("DINOv2 ReID unavailable (%s). Running IoU-only.", err)
 
     # ── process sequences ────────────────────────────────────────────
     dataset_dir = Path(args.dataset_dir)
@@ -324,7 +332,7 @@ def main():
     for seq_name in args.seq:
         seq_path = dataset_dir / args.split / seq_name
         if not seq_path.exists():
-            print(f"WARNING: Sequence not found: {seq_path}")
+            logger.warning("Sequence not found: %s", seq_path)
             continue
 
         seq = MOT20Sequence(seq_path)
@@ -351,7 +359,7 @@ def main():
             visualize=args.visualize,
         )
 
-    print(f"\nAll sequences done. Results in {output_dir}/")
+    logger.info("All sequences done. Results in %s/", output_dir)
 
 
 if __name__ == '__main__':

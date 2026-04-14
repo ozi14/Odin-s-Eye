@@ -38,14 +38,14 @@ The result is a pipeline that transforms raw video into both quantitative tracki
 ## Project Structure
 
 ```
-CV_term_project/
+Odin-s-Eye/
 ├── README.md                          ← you are here
 ├── .gitignore
 ├── LICENSE
 ├── models/                            ← YOLO weights (not committed)
 │   └── yolo26_weights_v1/
 │       └── best.pt                    # CrowdHuman-finetuned YOLO26m
-├── dump/                              ← Python virtual environment
+├── venv/                              ← Python virtual environment (local only)
 ├── mot/                               ← active project
 │   ├── CONTEXT.md                     # design document & project context
 │   ├── requirements.txt               # Python dependencies
@@ -77,7 +77,7 @@ CV_term_project/
 │           ├── frames/                # per-frame JSON track data
 │           ├── vis/                   # annotated frame images
 │           └── narration/             # VLM narration JSONs
-└── old/                               ← legacy v1/v2 code (separate branch)
+└── old/                               ← legacy v1/v2 code (optional)
 ```
 
 ---
@@ -100,8 +100,8 @@ cd Odin-s-Eye
 ### Step 2: Create and Activate Virtual Environment
 
 ```bash
-python3 -m venv dump
-source dump/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 ### Step 3: Install Dependencies
@@ -141,6 +141,14 @@ All scripts are run from the `mot/` directory:
 
 ```bash
 cd mot
+```
+
+### One-Command Quick Run (Tracking + Benchmark)
+
+```bash
+cd mot && \
+python scripts/01_track.py --seq MOT20-01 && \
+python scripts/03_benchmark.py --seq MOT20-01 --save_json
 ```
 
 ### Phase 1: Tracking

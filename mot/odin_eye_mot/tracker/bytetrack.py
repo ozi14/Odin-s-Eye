@@ -223,7 +223,7 @@ def linear_assignment(cost_matrix: np.ndarray,
         matched = np.stack([row_ind[valid], col_ind[valid]], axis=1)
         matched_rows = set(row_ind[valid].tolist())
         matched_cols = set(col_ind[valid].tolist())
-    except Exception:
+    except (ImportError, ValueError):
         # Greedy fallback
         cm = cost_matrix.copy()
         matched_rows, matched_cols = set(), set()
