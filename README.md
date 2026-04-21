@@ -21,17 +21,19 @@ The result is a pipeline that transforms raw video into both quantitative tracki
 
 ---
 
-## Results (MOT20-01)
+## Tracking Results
 
-| Metric | Value |
-|--------|-------|
-| **MOTA** | 70.92% |
-| **IDF1** | 69.12% |
-| **ID Switches** | 63 |
-| **Precision** | 90.28% |
-| **Recall** | 79.83% |
-| **Unique IDs** | 95 (GT: 74) |
-| **Fragmentations** | 196 |
+| Metric | MOT20-01 | MOT20-02 |
+|--------|----------|----------|
+| **MOTA** | 70.92% | 71.00% |
+| **IDF1** | 69.12% | 61.97% |
+| **ID Switches** | 63 | 568 |
+| **Precision** | 90.28% | 92.54% |
+| **Recall** | 79.83% | 77.62% |
+| **GT IDs** | 74 | 270 |
+| **Fragmentations** | 196 | 1645 |
+
+*MOT20-02 is an extended, high-density outdoor sequence (2,782 frames, ~150 ped/frame). Despite the increased complexity, the pipeline successfully maintains >70% MOTA and >92% Precision, tracking ~63% of ground truth identities for the vast majority of their trajectories with extremely few individuals mostly lost (2.2%).*
 
 ---
 
@@ -72,6 +74,12 @@ CV_term_project/
 │   │       └── test/  (MOT20-04..08)
 │   └── output/                        ← tracking & narration results
 │       └── MOT20-01/
+│       │   ├── mot_results.txt        # MOTChallenge format output
+│       │   ├── metrics.json           # benchmark results
+│       │   ├── frames/                # per-frame JSON track data
+│       │   ├── vis/                   # annotated frame images
+│       │   └── narration/             # VLM narration JSONs
+│       └── MOT20-02/
 │           ├── mot_results.txt        # MOTChallenge format output
 │           ├── metrics.json           # benchmark results
 │           ├── frames/                # per-frame JSON track data
