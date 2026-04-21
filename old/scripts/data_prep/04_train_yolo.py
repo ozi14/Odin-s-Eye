@@ -14,35 +14,50 @@ import os
 import argparse
 from ultralytics import YOLO
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DATA_YAML = os.path.join(BASE_DIR, "datasets", "merged_person_detection", "data.yaml")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_YAML = os.path.join(BASE_DIR, "data", "merged_person_detection", "data.yaml")
+RUNS_DIR = os.path.join(BASE_DIR, "runs")
+LAST_PT = os.path.join(RUNS_DIR, "yolo26m_ft_v2", "weights", "last.pt")
 
 
 def train(device: str):
-    model = YOLO("yolo26m.pt")
+    # Resume from checkpoint if it exists (for HPC auto-resubmit)
+    if os.path.exists(LAST_PT):
+        print(f"Resuming from {LAST_PT}")
+        model = YOLO(LAST_PT)
+        do_resume = True
+    else:
+        print("Starting fresh from yolo26m.pt")
+        model = YOLO("yolo26m.pt")
+        do_resume = False
 
     results = model.train(
         data=DATA_YAML,
-        epochs=40,
-        batch=16,
-        imgsz=1024,
-        patience=10,
+        epochs=200,
+        batch=32,              
+        imgsz=1280,
+        patience=50,
+        optimizer='SGD',
         lr0=0.01,
+        cos_lr=True,
         device=int(device) if device.isdigit() else device,
-        project=os.path.join(BASE_DIR, "models"),
-        name="yolo26m_ft_v1",
+        project=RUNS_DIR,
+        name="yolo26m_ft_v2",
         save=True,
-        save_period=5,
+        save_period=20,
         plots=True,
         verbose=True,
-        # augmentation
+        workers=8,
+        resume=do_resume,
         degrees=2.0,
         translate=0.05,
-        scale=0.2,
-        mosaic=0.5,
-        hsv_h=0.010,
-        hsv_s=0.30,
-        hsv_v=0.20,
+        scale=0.3,
+        mosaic=1.0,
+        mixup=0.15,
+        copy_paste=0.1,
+        hsv_h=0.015,
+        hsv_s=0.35,
+        hsv_v=0.25,
         fliplr=0.5,
         flipud=0.0,
     )
@@ -50,7 +65,7 @@ def train(device: str):
     print("\n" + "=" * 50)
     print("TRAINING COMPLETE")
     print("=" * 50)
-    out = os.path.join(BASE_DIR, "models", "yolo26m_ft_v1", "weights")
+    out = os.path.join(RUNS_DIR, "yolo26m_ft_v2", "weights")
     print(f"Best: {out}/best.pt")
     print(f"Last: {out}/last.pt")
 
