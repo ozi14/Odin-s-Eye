@@ -1,53 +1,28 @@
-# Byte-compiled / caches
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
 .pytest_cache/
-.mypy_cache/
-
-# Environments
+.ruff_cache/
+*.egg-info/
 .venv/
-venv/
-env/
-dump/
 
-# OS / IDE
+# OS / IDE (editor settings stay local)
 .DS_Store
 .idea/
 .vscode/
 
-# Project data & outputs (large / local)
-datasets/
-output/
-checkpoints/
-external/
-models/
-
-# Model weights (anywhere in tree)
+# Data, weights and runs are never committed (see data/README.md)
+data/*
+!data/README.md
+experiments/
+outputs/
+wandb/
 *.pt
 *.pth
-*.pth.tar
 *.onnx
 *.safetensors
-*.bin
+*.ckpt
 
-# Old/legacy VLM model + intermediate artefacts
-old/vlm/model/
-old/vlm/crops/
-old/vlm/padded_crops/
-old/vlm/annotated_frame.jpg
-
-# Old/legacy model weights (redundant with globs above, explicit for clarity)
-old/legacy/osnet_ain/*.pth.tar
-old/legacy/osnet_msmt17/*.pth
-
-# Jupyter
+# Notebooks / logs
 .ipynb_checkpoints/
-*.ipynb_checkpoints
-
-# Logs
 *.log
-wandb/
-
-# Editable install metadata
-*.egg-info/

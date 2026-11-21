@@ -1,0 +1,6 @@
+name: MOT20
+raw_dir: data/raw/MOT20
+split: train
+sequences: [MOT20-01, MOT20-02, MOT20-03, MOT20-05]
+anchor: body                      # MOT20 labels full bodies
+gt_tracks_dir: data/interim/gt_tracks/MOT20

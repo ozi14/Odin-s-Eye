@@ -1,0 +1,9 @@
+defaults:
+  - data: mot20
+  - _self_
+
+hydra:
+  run:
+    dir: experiments/hydra/${now:%Y%m%d_%H%M%S}_${hydra.job.name}
+  job:
+    chdir: false
