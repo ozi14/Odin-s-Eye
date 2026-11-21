@@ -1,5 +1,7 @@
 #!/bin/bash
-# One-time Explorer setup on the LOGIN node: uv, repo, environment, MOT20.  Safe to re-run.
+# Explorer setup: uv, repo, environment, MOT20 train split.  Safe to re-run.
+# Run it on a COMPUTE node (slurm/step3_fresh.sbatch does): on the login node the per-user memory
+# cap kills source builds (filterpy, a BoxMOT dependency) with SIGKILL.
 set -euo pipefail
 ROOT=/scratch/$USER/odins-eye
 BRANCH=${BRANCH:-v4-phase1}
@@ -19,9 +21,12 @@ PY=${PYTHON:-/shared/EL9/explorer/anaconda3/2024.06/bin/python3.12}
 uv sync --frozen --python "$PY"            # exact versions from uv.lock (Linux wheels, CUDA 13)
 mkdir -p data/raw data/weights slurm/logs
 
-if [[ ! -d data/raw/MOT20/train/MOT20-05 ]]; then
-  curl -fL -o /scratch/$USER/MOT20.zip https://motchallenge.net/data/MOT20.zip     # ~5 GB
-  unzip -q /scratch/$USER/MOT20.zip -d data/raw && rm /scratch/$USER/MOT20.zip
+if [[ ! -f data/raw/MOT20/train/MOT20-05/seqinfo.ini ]]; then
+  curl -fL --retry 5 -o /scratch/$USER/MOT20.zip https://motchallenge.net/data/MOT20.zip   # ~5 GB
+  # train split only: Phase 1 never uses test images, and every small file is slow on /scratch
+  unzip -q /scratch/$USER/MOT20.zip 'MOT20/train/*' -d data/raw
+  [[ -f data/raw/MOT20/train/MOT20-05/seqinfo.ini ]] || { unzip -l /scratch/$USER/MOT20.zip | head; exit 1; }
+  rm /scratch/$USER/MOT20.zip
   chmod -R a-w data/raw/MOT20
 fi
 for s in 01 02 03 05; do printf "MOT20-%s: %s frames, gt md5 %s\n" $s \
