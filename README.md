@@ -44,7 +44,7 @@ video ─► M1 Perception (detect + track) ─► tracks.parquet ─► M2 Crow
 | 0 | Repo skeleton + environment | layout, frozen `tracks-1.0` format (ADR-001) | Taha | ✅ |
 | 1 | Data I/O | MOT20 GT → `gt_tracks` parquet, streaming frame reader | Taha | ✅ |
 | 2 | **E0** evaluator validation | TrackEval wrapper validated (ADR-002), 92/92 checks | Taha | ✅ |
-| 3 | Detection (Explorer GPU) | YOLO26m detections, conf 0.1, all 4 sequences | Taha | ⏳ next |
+| 3 | Detection (Explorer GPU) | YOLO26m detections, conf 0.1, all 4 sequences ([Mac dev results](docs/results/step3_mac_dev/README.md)) | Taha | 🟡 Mac dev done · Explorer run queued |
 | 4 | Tracking | BoxMOT trackers + fixed v3 ByteTrack → `tracks.parquet` | Taha | |
 | 5 | **E1** tracker comparison | HOTA / IDF1 / IDSW tables by density | Jinsha | |
 | 6 | M2 crowd state | `crowd_state.parquet` (16×16 grid, 12 features per cell, 1-s windows) | Taha | |
@@ -206,7 +206,8 @@ src/odins_eye/
 └── utils/              paths, experiment folders
 scripts/                entry points, numbered by stage (00_, 10_, 20_, 9x_ for evaluation)
 tests/                  unit/ (no data needed) and integration/ (skipped without MOT20)
-docs/decisions/         ADR-001 tracks format, ADR-002 evaluation
+docs/decisions/         ADR-001 tracks format, ADR-002 evaluation, ADR-003 detector
+docs/results/           per-step results (tables, small figures, run metadata)
 data/                   NOT in git (see above)
 experiments/            NOT in git: one folder per run
 external/               NOT in git: reference third-party code (TrackEval for E0)

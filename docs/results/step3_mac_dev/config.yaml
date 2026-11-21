@@ -1,0 +1,30 @@
+data:
+  name: MOT20
+  raw_dir: data/raw/MOT20
+  split: train
+  sequences:
+  - MOT20-01
+  - MOT20-02
+  - MOT20-03
+  - MOT20-05
+  anchor: body
+  gt_tracks_dir: data/interim/gt_tracks/MOT20
+detector:
+  name: yolo26m_ft1_v3_1280
+  weights: data/weights/yolo26m_ft1_v3_1280.pt
+  weights_sha256: 379b9bbdbf0f91fb57fa87306c42401f2e7591c152066ee76c003eb3e7927e87
+  imgsz: 1280
+  conf: 0.1
+  iou: 0.7
+  max_det: 1000
+  batch: 16
+  half: true
+  device: auto
+  classes:
+  - 0
+  anchor: body
+experiment:
+  id: det
+  desc: yolo26m_ft1_v3_1280_mac_dev
+max_frames: null
+out_dir: data/interim/detections
