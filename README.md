@@ -169,16 +169,64 @@ print(res[["HOTA", "DetA", "AssA", "MOTA", "IDF1", "IDSW"]])
 
 ## How we work
 
-- **Branches:** `main` is the term-project branch. Work on short-lived branches from an up-to-date
-  main: `git switch main && git pull --ff-only && git switch -c feat/<stream>-<topic>`
-  (prefixes `feat/`, `fix/`, `exp/`, `docs/`).
-- **Pull requests:** small (under ~400 changed lines), with tests, CI green, one review (Taha);
-  reviews within 48 h.
+### Branches
+
+```
+feat/<stream>-<topic>  ──PR──►  main  ◄──PR (each finished step)──  v4-phase1  (Taha)
+                                  │                                     ▲
+                                  └────── git merge origin/main ────────┘
+```
+
+| Branch | Who | Purpose |
+|---|---|---|
+| `main` | everyone, **only through PRs** | shared, always-working term-project code |
+| `v4-phase1` | Taha | lead's development branch; merged into `main` by PR at each finished step (at least weekly) |
+| `feat/…`, `fix/…`, `exp/…`, `docs/…` | Jinsha, Shourya | one short-lived branch per task, created from `main` |
+| `v3` (+ tag `v3.0`) | nobody | archived previous system |
+
+`main` is protected: no direct pushes (admins included), no force-push, no deletion. A PR is
+required but needs 0 approvals, so the author can merge once checks pass. PRs are merged with a
+**merge commit** only (squash/rebase are disabled, so long-lived branches keep identical commits).
+
+### Teammates: one task = one branch = one PR
+
+```bash
+git switch main && git pull --ff-only
+git switch -c feat/eval-density-bins          # name: <type>/<stream>-<topic>
+# ... work, commit, push as often as you like ...
+git push -u origin feat/eval-density-bins
+git fetch origin && git merge origin/main     # before opening the PR: include the latest main
+gh pr create --base main --title "feat(eval): density-binned E1 results" --body "What / why / how tested"
+```
+Every push to the branch updates the open PR. After the merge, delete the branch and start the
+next task from a fresh `main`.
+
+### Taha: develop on `v4-phase1`, merge into `main` by PR
+
+```bash
+git switch v4-phase1 && git push                     # day-to-day work
+gh pr create --base main --head v4-phase1 --title "Step N: …" --body "…"
+gh pr merge --merge                                  # merge commit on main
+git fetch origin && git merge --ff-only origin/main && git push   # keep v4-phase1 == main
+```
+After a teammate's PR is merged: `git fetch origin && git merge origin/main && git push` on
+`v4-phase1`, so the lead branch has their code.
+
+### Rules
+
+- **Small and often:** PRs under ~400 changed lines; merge into `main` at least weekly. Long-lived
+  differences between branches turn into merge conflicts.
+- **Stay in your folders** (see the team table); shared files (`io/schemas.py`, `pyproject.toml`,
+  configs) change only with a short note in the PR.
+- **Before every PR:** `ruff check . && ruff format . && pytest` pass locally (CI will enforce this).
+- **Never** `git push --force` on `main` or `v4-phase1`; never commit data, weights, videos or
+  experiment outputs (pre-commit blocks files over 1 MB).
 - **Commits:** Conventional Commits: `feat(eval): ...`, `fix(io): ...`, `docs: ...`, `test: ...`.
-- **Never commit** data, weights, videos or experiment outputs (pre-commit blocks files over 1 MB).
+- **Frozen formats** (`tracks-1.0`, `detections-1.0`) change only with a new ADR and a version bump.
 - **Experiments:** every reported number comes from a script that writes
   `experiments/YYYYMMDD_<exp>_<desc>/` with the resolved config, git hash, metrics and logs.
-  Commit before running, so `git.json` records a clean hash.
+  Commit before running, so `git.json` records a clean hash. Small result summaries go to
+  `docs/results/<step>/`.
 - **Decisions:** one short record per decision in `docs/decisions/ADR-NNN-*.md`.
 - **Sync:** 30-minute weekly meeting; shared results log updated every Friday.
 
