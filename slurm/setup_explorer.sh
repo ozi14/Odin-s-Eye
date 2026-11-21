@@ -12,13 +12,11 @@ export PATH="$HOME/.local/bin:$PATH"
 
 if [[ -d $ROOT/.git ]]; then git -C "$ROOT" pull --ff-only; else git clone -b "$BRANCH" https://github.com/ozi14/Odin-s-Eye.git "$ROOT"; fi
 cd "$ROOT"
-# Python 3.12: uv's own downloader stalls on Explorer, so fetch the same standalone build with curl
-PYDIR=/scratch/$USER/.local/python3.12
-PY_URL=https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz
-if [[ ! -x $PYDIR/bin/python3.12 ]]; then
-  mkdir -p "$PYDIR" && curl -fL --retry 5 "$PY_URL" | tar -xz -C "$PYDIR" --strip-components=1
-fi
-uv sync --frozen --python "$PYDIR/bin/python3.12"     # exact versions from uv.lock (Linux, CUDA 13)
+# Python 3.12 interpreter: the cluster's Anaconda build. Downloading one (uv python install or
+# curl from GitHub) stalls at ~31 MB on Explorer, so no Python is downloaded.
+PY=${PYTHON:-/shared/EL9/explorer/anaconda3/2024.06/bin/python3.12}
+[[ -x $PY ]] || { echo "no Python 3.12 at $PY (set PYTHON=...)"; exit 1; }
+uv sync --frozen --python "$PY"            # exact versions from uv.lock (Linux wheels, CUDA 13)
 mkdir -p data/raw data/weights slurm/logs
 
 if [[ ! -d data/raw/MOT20/train/MOT20-05 ]]; then
