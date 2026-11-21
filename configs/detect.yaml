@@ -1,0 +1,12 @@
+# Step 3: detect people in every frame.   python scripts/10_detect.py
+# Smoke test: python scripts/10_detect.py max_frames=32 data.sequences=[MOT20-01]
+defaults:
+  - config
+  - perception/detector@detector: yolo26m_ft1_v3_1280
+  - _self_
+
+experiment:
+  id: det
+  desc: ${detector.name}
+max_frames: null                      # null = all frames; set for smoke tests
+out_dir: data/interim/detections      # <out_dir>/<detector>[_smoke]/<seq>.parquet

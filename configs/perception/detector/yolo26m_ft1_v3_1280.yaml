@@ -1,0 +1,13 @@
+# YOLO26m fine-tuned on CrowdHuman + CCTV Persons (long Explorer run, epoch 160). ADR-003.
+name: yolo26m_ft1_v3_1280
+weights: data/weights/yolo26m_ft1_v3_1280.pt
+weights_sha256: 379b9bbdbf0f91fb57fa87306c42401f2e7591c152066ee76c003eb3e7927e87
+imgsz: 1280      # = training size
+conf: 0.1        # weak boxes kept for ByteTrack's low-score pass
+iou: 0.7         # NMS IoU (head is not end-to-end)
+max_det: 1000
+batch: 16
+half: true       # fp16 on CUDA; ignored on MPS/CPU
+device: auto     # cuda:0 on Explorer, mps on the Mac
+classes: [0]
+anchor: body

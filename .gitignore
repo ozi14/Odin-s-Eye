@@ -29,3 +29,5 @@ wandb/
 
 # Third-party code checked out for reference runs (see docs)
 external/
+slurm/logs/
+slurm/.race/

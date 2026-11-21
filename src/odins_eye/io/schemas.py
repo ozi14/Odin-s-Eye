@@ -1,7 +1,8 @@
 """Frozen table formats shared between modules (ADR-001).
 
-tracks-1.0    : output of M1 (any tracker); input of M2, evaluation and visuals.
-gt_tracks-1.0 : MOTChallenge ground truth in the same layout plus the GT-only columns.
+tracks-1.0      : output of M1 (any tracker); input of M2, evaluation and visuals.
+gt_tracks-1.0   : MOTChallenge ground truth in the same layout plus the GT-only columns.
+detections-1.0  : raw detector output, input of every tracker (ADR-003).
 """
 
 from __future__ import annotations
@@ -40,6 +41,21 @@ GT_TRACKS_SCHEMA = pa.schema(
 )
 
 
+_DET_FIELDS = [
+    pa.field("video_id", pa.string(), nullable=False),
+    pa.field("frame", pa.int32(), nullable=False),  # 1-based
+    pa.field("det_id", pa.int32(), nullable=False),  # 0..n-1 within a frame, by descending score
+    pa.field("x1", pa.float32(), nullable=False),
+    pa.field("y1", pa.float32(), nullable=False),
+    pa.field("x2", pa.float32(), nullable=False),
+    pa.field("y2", pa.float32(), nullable=False),
+    pa.field("score", pa.float32(), nullable=False),
+    pa.field("anchor", pa.string(), nullable=False),
+]
+
+DETECTIONS_SCHEMA = pa.schema(_DET_FIELDS, metadata={SCHEMA_KEY: b"detections-1.0"})
+
+
 class SchemaError(ValueError):
     """A table does not match its frozen format."""
 
@@ -67,7 +83,9 @@ def validate(table: pa.Table, schema: pa.Schema) -> None:
             raise SchemaError(f"column {name!r} contains nulls")
     if table.num_rows == 0:
         return
-    df = table.select([f.name for f in _TRACK_FIELDS]).to_pandas()
+    id_col = "track_id" if "track_id" in schema.names else "det_id"
+    core = ["video_id", "frame", id_col, "x1", "y1", "x2", "y2", "score", "anchor"]
+    df = table.select(core).to_pandas()
     if (df["frame"] < 1).any():
         raise SchemaError("frame must be >= 1 (frames are 1-based)")
     if ((df["x2"] <= df["x1"]) | (df["y2"] <= df["y1"])).any():
@@ -76,8 +94,8 @@ def validate(table: pa.Table, schema: pa.Schema) -> None:
         raise SchemaError("score must be in [0, 1]")
     if not df["anchor"].isin(ANCHORS).all():
         raise SchemaError(f"anchor must be one of {ANCHORS}")
-    if df.duplicated(["video_id", "frame", "track_id"]).any():
-        raise SchemaError("a track_id appears twice in the same frame")
+    if df.duplicated(["video_id", "frame", id_col]).any():
+        raise SchemaError(f"a {id_col} appears twice in the same frame")
 
 
 def write_table(df: pd.DataFrame, path: str | Path, schema: pa.Schema) -> Path:
