@@ -21,9 +21,15 @@ pre-commit install           # ruff + safety hooks on every commit
 
 ```bash
 python scripts/00_prepare_data.py      # MOT20 GT -> data/interim/gt_tracks/MOT20/*.parquet
+python scripts/91_e0_validate_eval.py  # E0: validate the evaluator (~2 min) -> experiments/
 pytest                                 # unit + integration tests
 ruff check . && ruff format --check .
 ```
+
+E0 needs two reference inputs (not in git):
+TrackEval's example data in `data/raw/trackeval_example/` (data.zip from the TrackEval README) and
+the original TrackEval in `external/TrackEval` (`git clone https://github.com/JonathonLuiten/TrackEval.git
+external/TrackEval && git -C external/TrackEval checkout 12c8791`).
 
 ## Layout
 
