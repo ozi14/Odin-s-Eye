@@ -5,6 +5,7 @@ ROOT=/scratch/$USER/odins-eye
 BRANCH=${BRANCH:-v4-phase1}
 export UV_CACHE_DIR=/scratch/$USER/.cache/uv            # keep big caches out of the home quota
 export UV_PYTHON_INSTALL_DIR=/scratch/$USER/.local/uv-python
+export UV_HTTP_TIMEOUT=600 UV_HTTP_RETRIES=8               # Explorer downloads from GitHub can stall
 
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"

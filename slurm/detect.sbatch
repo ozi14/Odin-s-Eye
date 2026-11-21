@@ -13,7 +13,7 @@ source slurm/race.sh            # exits quietly if another GPU type already won
 
 echo "job $SLURM_JOB_ID on $(hostname), partition $SLURM_JOB_PARTITION"
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
-export UV_CACHE_DIR=/scratch/$USER/.cache/uv
+export UV_CACHE_DIR=/scratch/$USER/.cache/uv UV_PYTHON_INSTALL_DIR=/scratch/$USER/.local/uv-python
 source .venv/bin/activate
 python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'; print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0))"
 python scripts/10_detect.py "$@"
