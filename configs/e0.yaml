@@ -1,0 +1,17 @@
+# E0: is our evaluation code correct?   python scripts/91_e0_validate_eval.py
+defaults:
+  - config
+  - _self_
+
+experiment:
+  id: e0
+  desc: trackeval-validation
+  benchmark: MOT20
+  reference:                     # A) our wrapper + trackeval 1.3.0 vs original TrackEval
+    tracker: MPNTrack            # example tracker shipped with TrackEval's data.zip
+    trackers_folder: data/raw/trackeval_example/data/trackers/mot_challenge/MOT20-train
+    upstream_dir: external/TrackEval   # JonathonLuiten/TrackEval @ 12c8791
+  known_answers:                 # B) perturbed GT with hand-derived scores
+    drop_frac: 0.10
+    shift_frac: 0.10
+    seed: 0
