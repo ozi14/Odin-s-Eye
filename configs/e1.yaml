@@ -1,0 +1,17 @@
+# E1: compare tracking predictions against MOT20 ground truth.
+defaults:
+  - config
+  - _self_
+
+experiment:
+  id: e1
+
+predictions_dir: null  # directory containing one tracks-1.0 Parquet file per sequence
+simulate_gt: false   # use scored GT as perfect predictions for a smoke test
+
+density:
+  # Inclusive lower bounds in scored GT people per frame or per cell.
+  frame_bins: [0, 50, 100, 150, 200]
+  grid_bins: [0, 1, 2, 4, 8]
+  grid_rows: 16
+  grid_cols: 16
