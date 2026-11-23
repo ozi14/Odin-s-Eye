@@ -48,6 +48,33 @@ def _row(r: dict) -> dict:
     }
 
 
+def mot_challenge_dataset(
+    trackers_folder: str | Path,
+    tracker_name: str,
+    gt_folder: str | Path,
+    seqs: Sequence[str],
+    benchmark: str = "MOT20",
+):
+    """Open MOT predictions and GT with the shared TrackEval preprocessing settings."""
+    import trackeval  # lazy: E0 swaps in the upstream reference implementation
+
+    ds_cfg = trackeval.datasets.MotChallenge2DBox.get_default_dataset_config()
+    ds_cfg.update(
+        {
+            "GT_FOLDER": str(gt_folder),
+            "TRACKERS_FOLDER": str(trackers_folder),
+            "TRACKERS_TO_EVAL": [tracker_name],
+            "BENCHMARK": benchmark,
+            "SKIP_SPLIT_FOL": True,
+            "SEQ_INFO": {seq: None for seq in seqs},  # None: length read from seqinfo.ini
+            "CLASSES_TO_EVAL": ["pedestrian"],
+            "DO_PREPROC": True,
+            "PRINT_CONFIG": False,
+        }
+    )
+    return trackeval.datasets.MotChallenge2DBox(ds_cfg)
+
+
 def evaluate_mot_files(
     trackers_folder: str | Path,
     tracker_name: str,
@@ -74,22 +101,8 @@ def evaluate_mot_files(
             "PLOT_CURVES": False,
         }
     )
-    ds_cfg = trackeval.datasets.MotChallenge2DBox.get_default_dataset_config()
-    ds_cfg.update(
-        {
-            "GT_FOLDER": str(gt_folder),
-            "TRACKERS_FOLDER": str(trackers_folder),
-            "TRACKERS_TO_EVAL": [tracker_name],
-            "BENCHMARK": benchmark,
-            "SKIP_SPLIT_FOL": True,
-            "SEQ_INFO": {seq: None for seq in seqs},  # None: length read from seqinfo.ini
-            "CLASSES_TO_EVAL": ["pedestrian"],
-            "DO_PREPROC": True,
-            "PRINT_CONFIG": False,
-        }
-    )
     with contextlib.redirect_stdout(io.StringIO()):  # TrackEval prints configs and progress
-        dataset = trackeval.datasets.MotChallenge2DBox(ds_cfg)
+        dataset = mot_challenge_dataset(trackers_folder, tracker_name, gt_folder, seqs, benchmark)
         metrics = [
             trackeval.metrics.HOTA(),
             trackeval.metrics.CLEAR(),
