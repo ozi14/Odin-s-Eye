@@ -10,8 +10,8 @@ authors = [{ name = "Taha Oguzhan Ucar" }]
 # Phase 1 runtime deps only (M1 perception + M2 crowd state + evaluation).
 # Phase 2+ deps (transformers, vllm, faiss, mlx-vlm) are added when that phase starts.
 dependencies = [
-    "torch>=2.4",
-    "torchvision>=0.19",
+    "torch==2.14.1",                 # one version on Mac and Explorer (ADR-003)
+    "torchvision==0.29.1",
     "ultralytics>=8.4.0",            # YOLO26 needs 8.4+
     "boxmot>=26.0",                  # ByteTrack / OC-SORT / BoT-SORT / Deep OC-SORT + OSNet
     "trackeval==1.3.0",              # maintained PyPI fork of TrackEval (NumPy 2 safe), same pin as BoxMOT
@@ -34,6 +34,17 @@ dev = [
     "pre-commit>=3.7",
     "ipykernel",                     # notebooks/ exploration only
 ]
+
+# Explorer GPU nodes run NVIDIA driver 570 (CUDA <= 12.8): PyPI's Linux torch is built for CUDA 13
+# (needs driver >= 580), so Linux takes the CUDA 12.6 build, which also covers V100/A100/H200.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]

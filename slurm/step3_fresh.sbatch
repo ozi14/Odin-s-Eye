@@ -1,7 +1,8 @@
 #!/bin/bash
 # Fresh Explorer run of Step 3 on ONE GPU node: setup -> verify -> smoke test -> full detection.
 # Submit from /scratch/$USER/staging (holds this file + the weights), e.g.:
-#   for g in h200 a100; do sbatch --gres=gpu:$g:1 step3_fresh.sbatch; done   (first to start wins)
+#   rm -rf race_winner; for g in h200 a100; do sbatch --gres=gpu:$g:1 step3_fresh.sbatch; done
+# (first to start wins). Re-runs reuse the clone, the uv cache and MOT20 on /scratch.
 #SBATCH --job-name=oe-step3
 #SBATCH --partition=gpu-short,gpu
 #SBATCH --time=02:00:00
@@ -34,7 +35,7 @@ nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
 curl -sfI https://pypi.org > /dev/null && echo "internet: ok"
 
 stage "1 clone + environment + MOT20 (slurm/setup_explorer.sh)"
-git clone -q -b v4-phase1 https://github.com/ozi14/Odin-s-Eye.git "$ROOT"
+if [[ -d $ROOT/.git ]]; then git -C "$ROOT" pull -q --ff-only; else git clone -q -b v4-phase1 https://github.com/ozi14/Odin-s-Eye.git "$ROOT"; fi
 git -C "$ROOT" log --oneline -1
 bash "$ROOT/slurm/setup_explorer.sh"
 cd "$ROOT"

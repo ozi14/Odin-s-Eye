@@ -1,0 +1,5 @@
+seq,frames,detections,dets_per_frame_mean,dets_per_frame_max,frames_hitting_max_det,seconds_total,fps_total,fps_model
+MOT20-01,429,19458,45.36,55,0,14.87,28.85,33.59
+MOT20-02,2782,146026,52.49,93,0,78.89,35.27,42.3
+MOT20-03,2405,316930,131.78,193,0,80.76,29.78,32.52
+MOT20-05,3315,636338,191.96,232,0,116.48,28.46,32.73
