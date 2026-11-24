@@ -25,6 +25,6 @@ detector:
   anchor: body
 experiment:
   id: det
-  desc: yolo26m_ft1_v3_1280_mac_dev
+  desc: yolo26m_ft1_v3_1280
 max_frames: null
 out_dir: data/interim/detections

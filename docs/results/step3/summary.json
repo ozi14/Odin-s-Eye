@@ -1,5 +1,5 @@
 {
-  "out_dir": "data/interim/detections/yolo26m_ft1_v3_1280_mac_dev",
+  "out_dir": "data/interim/detections/yolo26m_ft1_v3_1280",
   "gpu": null,
   "sequences": [
     {
@@ -9,9 +9,9 @@
       "dets_per_frame_mean": 45.36,
       "dets_per_frame_max": 55,
       "frames_hitting_max_det": 0,
-      "seconds_total": 13.41,
-      "fps_total": 32.0,
-      "fps_model": 37.69
+      "seconds_total": 14.87,
+      "fps_total": 28.85,
+      "fps_model": 33.59
     },
     {
       "seq": "MOT20-02",
@@ -20,9 +20,9 @@
       "dets_per_frame_mean": 52.49,
       "dets_per_frame_max": 93,
       "frames_hitting_max_det": 0,
-      "seconds_total": 77.4,
-      "fps_total": 35.94,
-      "fps_model": 43.21
+      "seconds_total": 78.89,
+      "fps_total": 35.27,
+      "fps_model": 42.3
     },
     {
       "seq": "MOT20-03",
@@ -31,9 +31,9 @@
       "dets_per_frame_mean": 131.78,
       "dets_per_frame_max": 193,
       "frames_hitting_max_det": 0,
-      "seconds_total": 79.17,
-      "fps_total": 30.38,
-      "fps_model": 33.18
+      "seconds_total": 80.76,
+      "fps_total": 29.78,
+      "fps_model": 32.52
     },
     {
       "seq": "MOT20-05",
@@ -42,9 +42,9 @@
       "dets_per_frame_mean": 191.96,
       "dets_per_frame_max": 232,
       "frames_hitting_max_det": 0,
-      "seconds_total": 123.19,
-      "fps_total": 26.91,
-      "fps_model": 30.7
+      "seconds_total": 116.48,
+      "fps_total": 28.46,
+      "fps_model": 32.73
     }
   ]
 }
